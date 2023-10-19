@@ -76,7 +76,8 @@ def v_trimming(v_seq, cdr3_seq):
         common_substrings = [x for x in all_v_strings if x in v_seq and x in cdr3_seq and x.startswith('C')]
         ordered_cs = sorted(common_substrings, key=len, reverse=True)
         new_match_seq = ordered_cs[0]
-        v_seq_trimmed = v_seq.split(new_match_seq)[0]
+        v_seq_parts = v_seq.split(new_match_seq)[:-1]
+        v_seq_trimmed = ''.join(v_seq_parts)
     return v_seq_trimmed
 
 #Finds motif in J sequence to keep the following sequence
