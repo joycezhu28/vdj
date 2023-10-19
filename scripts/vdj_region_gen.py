@@ -70,7 +70,8 @@ def v_trimming(v_seq, cdr3_seq):
     match = SequenceMatcher(None, v_seq, cdr3_seq).find_longest_match()
     match_seq = v_seq[match.a:match.a + match.size]
     if match_seq[0] == 'C':
-        v_seq_trimmed = v_seq.split(match_seq)[0]
+        v_seq_parts = v_seq.split(match_seq)[:-1]
+        v_seq_trimmed = ''.join(v_seq_parts)
     else:
         all_v_strings = [v_seq[i:k+1] for i in range(len(v_seq)) for k in range(len(v_seq))]
         common_substrings = [x for x in all_v_strings if x in v_seq and x in cdr3_seq and x.startswith('C')]
