@@ -65,20 +65,50 @@ def v_trimming(v_seq, cdr3_seq):
         v_seq = V sequence
         cdr3_seq = CDR3 sequence
     Output:
-        v_seq_trimmed where the longest common sequence between V & CDR3 starting with C is removed along with the sequence following it
+        v_seq_trimmed = identify lcs between V and CDR3 sequences, locate in V sequence, and trim corresponding end off of V sequence
+            1st method: lcs starting with C and with match size of > 2
+            2nd method: pairwise alignment starting with C and with match size of >= 5
     '''
-    match = SequenceMatcher(None, v_seq, cdr3_seq).find_longest_match()
-    match_seq = v_seq[match.a:match.a + match.size]
-    if (match_seq[0] == 'C') & (match.size > 1):
-        v_seq_parts = v_seq.split(match_seq)[:-1]
-        v_seq_trimmed = ''.join(v_seq_parts)
+    match = SequenceMatcher(None, v_seq[-25:], cdr3_seq).find_longest_match()
+    match_seq = v_seq[-25:][match.a:match.a + match.size]
+    if (match_seq[0] == 'C') & (match.size > 2):
+        v_seq_as_parts = v_seq.split(match_seq)[:-1]
+        v_seq_trimmed = match_seq.join(v_seq_as_parts)
     else:
-        all_v_strings = [v_seq[i:k+1] for i in range(len(v_seq)) for k in range(len(v_seq))]
-        common_substrings = [x for x in all_v_strings if x in v_seq and x in cdr3_seq and x.startswith('C') and len(x)>1]
-        ordered_cs = sorted(common_substrings, key=len, reverse=True)
-        new_match_seq = ordered_cs[0]
-        v_seq_parts = v_seq.split(new_match_seq)[:-1]
-        v_seq_trimmed = ''.join(v_seq_parts)
+        v_segment = v_seq[-25:]
+        #Pairwise alignment
+        alignments = PairwiseAligner().align(v_segment, cdr3_seq)
+        alignment = alignments[0]
+
+        #Retrieving indexes/coordinates of matches and organizing it as a dictionary
+        paths = alignment.coordinates
+        v_path = list(paths[0])
+        cdr3_path = list(paths[1])
+        path_dict = {cdr3_path[i]: v_path[i] for i in range(len(cdr3_path))}
+
+        #Extract detected common sequence from pairwise alignment
+        new_match_seq = v_segment[path_dict[0]:]
+
+        #Ensure common sequence doesn't have a false start (as seen in specific cases)
+        test_segment = new_match_seq[1:]
+        test_segment2 = new_match_seq[2:]
+        #Calculating alignment scores
+        PairwiseAligner().open_gap_score = 0
+        PairwiseAligner().extend_gap_score = 0
+        align_score = PairwiseAligner().score(new_match_seq, cdr3_seq)
+        test_align_score = PairwiseAligner().score(test_segment, cdr3_seq)
+        test_align_score2 = PairwiseAligner().score(test_segment2, cdr3_seq)
+        if (align_score == test_align_score):
+            new_match_seq = test_segment
+        if (align_score == test_align_score2):
+            new_match_seq = test_segment2
+
+        #Ensure start is C and alignment score >= 5
+        if (new_match_seq[0] == 'C') & (align_score >= 5):
+            v_seq_as_parts = v_seq.split(new_match_seq)[:-1]
+            v_seq_trimmed = new_match_seq.join(v_seq_as_parts)
+        else:
+            v_seq_trimmed = 'NA'
     return v_seq_trimmed
 
 #Finds motif in J sequence to keep the following sequence
@@ -162,7 +192,7 @@ def vdj_region_gen(vj_file, v_file, j_file, output):
     #Generate column containing full V-CDR3-J AA sequences
     final_df = full_region_gen(vj_with_seq2)
     #Save output to csv
-    final_df.to_csv(output, header=True, index=False)
+    final_df.to_csv(output, header=True)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Generates full V-CDR3-J AA sequences')
